@@ -259,7 +259,8 @@ function parseCSV(text){
       if (c === ','){ row.push(val); val = ''; continue; }
       if (c === '
 '){ row.push(val); rows.push(row); row = []; val = ''; continue; }
-      if (c === ''){ continue; }
+      if (c === '
+'){ continue; }
       val += c;
     }
   }
