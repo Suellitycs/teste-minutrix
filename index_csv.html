@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Minutrix — Acompanhamento Inteligente · Minutas em dia</title>
+<link id="favicon" rel="icon" type="image/svg+xml" />
+
+<style>
+  :root{
+    --bg:#0a1015;--panel:#0e1820;--ink:#e8f2ff;--muted:#94a7b6;--border:#182531;
+    --ok:#1de9b6;--warn:#ffd166;--blue:#5ca8ff;--accent:#14c6b7
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 800px at 20% -10%,#0d1b24 0%,#0a1015 55%,#080e13 100%);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+  header{padding:14px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#0f1a22,#0d1720);position:sticky;top:0;z-index:10}
+  h1{margin:0;font-weight:800;font-size:20px;letter-spacing:.2px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand img{height:36px;width:36px;border-radius:10px;border:1px solid #0e2b2c;background:#071316;box-shadow:0 0 0 2px rgba(20,198,183,.15)}
+  .brand small{display:block;color:var(--muted)}
+  .wrap{max-width:1200px;margin:auto;padding:14px}
+  nav{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .tab{padding:8px 14px;border-radius:12px;border:1px solid var(--border);background:#0b141b;color:#b8c7d3;cursor:pointer;transition:.15s}
+  .tab:hover{transform:translateY(-1px)}
+  .tab.active{background:var(--accent);color:#00110f;border-color:transparent;box-shadow:0 8px 30px rgba(20,198,183,.25)}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(5,minmax(0,1fr))}
+  .k{background:linear-gradient(180deg,#0d1620,#0a1015);border:1px solid var(--border);padding:14px;border-radius:14px}
+  .k .t{color:var(--muted);font-size:12px;margin-bottom:6px}
+  .k .v{font-weight:900;font-size:28px}
+  #err{display:none;margin:12px 0;padding:10px;border:1px solid #733040;background:#451b26;color:#ffdbe1;border-radius:12px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  input,select{background:#0b141b;border:1px solid var(--border);color:#e8f2ff;padding:9px 10px;border-radius:10px}
+  button{background:#13212b;border:1px solid var(--border);color:#e8f2ff;padding:9px 12px;border-radius:12px;cursor:pointer}
+  button.primary{background:var(--accent);color:#011412;border-color:transparent}
+  table{width:100%;border-collapse:separate;border-spacing:0 6px;margin-top:6px}
+  thead th{color:#9fb0bf;text-align:left;font-size:12px;letter-spacing:.3px}
+  tbody td{background:linear-gradient(180deg,#0e1821,#0a1117);border:1px solid var(--border);padding:10px}
+  tbody tr td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+  tbody tr td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+  .badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;display:inline-block}
+  .b-ok{background:rgba(29,233,182,.12);color:#9bffe6}
+  .b-warn{background:rgba(255,209,102,.12);color:#ffe3a6}
+  .b-blue{background:rgba(92,168,255,.12);color:#d7e7ff;border-color:#2b5ea7}
+  .tabv{animation:fade .15s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* VINHETA */
+  #intro_overlay{position:fixed; inset:0; background:#000; display:flex; align-items:center; justify-content:center; z-index:9999;}
+  #intro_overlay iframe{width:100%; height:100%; border:0}
+
+  /* Power BI responsivo */
+  .bi-frame{position:relative;padding-top:56.25%;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#0b141b}
+  .bi-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+
+  /* Charts lado a lado */
+  .charts{display:grid;gap:12px;grid-template-columns:2fr 1fr}
+  @media (max-width: 960px){.charts{grid-template-columns:1fr}}
+  #chart_adv, #chart_today{min-height:340px}
+
+  /* Agenda (calendário simples) */
+  .agenda-grid{display:grid;gap:6px;grid-template-columns:repeat(7,1fr)}
+  .agenda-day{border:1px solid var(--border);border-radius:10px;min-height:84px;padding:8px;background:#0b141b;cursor:pointer}
+  .agenda-day.muted{opacity:.55;cursor:default}
+  .agenda-day .dnum{font-weight:700;color:#b8c7d3}
+  .agenda-day .count{margin-top:6px;display:inline-block;padding:2px 6px;border-radius:999px;border:1px solid var(--border);font-size:12px;background:#0e1821;color:#cfe1ff}
+</style>
+
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+</head>
+<body>
+<!-- Vinheta (mantida) -->
+<div id="intro_overlay">
+  <iframe src="minutrix_intro_neon_plus_6s.html" title="Minutrix Intro"></iframe>
+</div>
+
+<header class="wrap">
+  <div class="brand">
+    <img id="logo" alt="Logo">
+    <div>
+      <h1>Minutrix — Acompanhamento Inteligente</h1>
+      <small>Minutas em dia</small>
+    </div>
+  </div>
+  <nav>
+    <button class="tab active" data-tab="painel">Painel</button>
+    <button class="tab" data-tab="tabela">Tabela</button>
+    <button class="tab" data-tab="bi">Power BI</button>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div id="err"></div>
+
+  <!-- PAINEL -->
+  <section id="painel" class="tabv" style="display:block">
+    <div class="grid">
+      <div class="k"><div class="t">Registros</div><div id="k_total" class="v">—</div></div>
+      <div class="k"><div class="t">Dentro do prazo</div><div id="k_ok" class="v">—</div></div>
+      <div class="k"><div class="t">Fora do prazo</div><div id="k_late" class="v">—</div></div>
+      <div class="k"><div class="t">% Fora do prazo</div><div id="k_pct_out" class="v">—</div></div>
+      <div class="k"><div class="t">% Dentro do prazo</div><div id="k_pct_in" class="v">—</div></div>
+    </div>
+    <div class="charts" style="margin-top:12px">
+      <div class="k">
+        <div class="t">Quantidade por Advogado</div>
+        <div id="chart_adv"></div>
+      </div>
+      <div class="k">
+        <div class="t">Feitos hoje (envios no dia)</div>
+        <div id="chart_today"></div>
+      </div>
+    </div>
+
+    <div class="k" style="margin-top:12px">
+      <div class="t">Finalizados: dentro vs fora do prazo</div>
+      <div id="chart_finalizados" style="min-height:320px"></div>
+    </div>
+
+    <!-- Agenda -->
+    <div class="k" style="margin-top:12px">
+      <div class="t" id="agenda_title">Agenda de Envios — <span id="agenda_month"></span></div>
+      <div id="agenda" class="agenda-grid"></div>
+      <div class="t" style="margin-top:6px;color:#94a7b6">Clique no dia para filtrar a Tabela por <b>Data de Envio</b>.</div>
+    </div>
+  </section>
+
+  <!-- TABELA -->
+  <section id="tabela" class="tabv" style="display:none">
+    <div class="controls" id="controls_all" style="display:flex">
+      <input id="q" placeholder="Buscar: ID, prazo, advogado, cliente..."/>
+      <select id="f_adv"><option value="">Advogado: Todos</option></select>
+      <select id="f_cli"><option value="">Cliente: Todos</option></select>
+      <select id="f_hoje">
+        <option value="">Situação (Hoje): Todas</option>
+        <option value="OK">OK</option>
+        <option value="A_VENCER">A_VENCER</option>
+        <option value="HOJE">HOJE</option>
+        <option value="VENCIDO">VENCIDO</option>
+      </select>
+      <select id="f_tipo"><option value="">Descrição do Prazo: Todos</option></select>
+      <input id="f_de_from" type="date" title="Data de Envio - De"/>
+      <input id="f_de_to"   type="date" title="Data de Envio - Até"/>
+      <button id="filtrar" class="primary">Filtrar</button>
+      <button id="limpar">Limpar</button>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Descrição do Prazo</th><th>Advogado</th><th>Cliente</th>
+        <th>Data Fatal</th><th>Data Envio</th><th>SLA</th><th>DU</th><th>Hoje</th><th>Status do Prazo</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+    <div id="rows" class="muted" style="margin-top:6px">—</div>
+  </section>
+
+  <!-- POWER BI -->
+  <section id="bi" class="tabv" style="display:none">
+    <div class="k" style="margin-bottom:12px"><div class="t">Dashboard</div>
+      <div class="badge" style="border-radius:8px">Power BI</div>
+    </div>
+    <div class="bi-frame"><iframe id="bi_iframe" loading="lazy" allowfullscreen></iframe></div>
+  </section>
+</main>
+
+<footer style="margin:18px auto 28px; max-width:1200px; padding:0 14px; color:#94a7b6; font-size:12px;">
+  <div style="display:flex; justify-content:flex-end;">
+    <span style="opacity:.9">Desenvolvido por Suelly Maria</span>
+  </div>
+</footer>
+
+<script>
+/* ===== CONFIG ===== */
+const CSV_URL    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTVtSDpKfh2yh1tHJq_JQHFPgNP5HL_ppscxtIbZYXXfFcXBlDgz33JStRO8SOTd-erBWpSX-swSo1b/pub?output=csv';
+const POWERBI_URL= 'https://app.powerbi.com/view?r=eyJrIjoiYTM1N2IxZGMtOTFiNC00YzViLTk3OTEtOTY3YzRmNWFiOTEyIiwidCI6IjM2NDZmODI0LWFjNDQtNDViNC1hNjllLTQ0YWI1MTBmNmFhZiJ9';
+
+/* LOGO */
+const LOGO_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#14c6b7"/><stop offset="1" stop-color="#1de9b6"/></linearGradient></defs>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="12" ry="12" fill="#0b141b" stroke="#1f3844" stroke-width="3"/>
+  <path d="M14 46 L14 18 L26 36 L38 18 L38 46" fill="none" stroke="url(#g)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="22" r="3.8" fill="url(#g)"/>
+</svg>`;
+const LOGO_URL = 'data:image/svg+xml;utf8,' + encodeURIComponent(LOGO_SVG);
+document.getElementById('logo').src = LOGO_URL;
+document.getElementById('favicon').href = LOGO_URL;
+
+/* Helpers */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+const S = {rows:[], filtered:[]};
+const F = {q:'',adv:'',cli:'',hoje:'', tipo:'', de_from:null, de_to:null};
+
+function toDate(v){ if(!v) return null; if(v instanceof Date) return v;
+  const s=String(v).trim(), m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){ const d=+m[1], mo=+m[2]-1, y=m[3].length===2?2000+ +m[3]:+m[3]; return new Date(y,mo,d); }
+  const n=Number(s); if(!isNaN(n) && n>20000 && n<10000000000000) return new Date(n);
+  const d=new Date(s); return isNaN(d)? null : d;
+}
+function sameDay(a,b){ if(!a||!b) return false; const A=new Date(a), B=new Date(b);
+  return A.getFullYear()===B.getFullYear() && A.getMonth()===B.getMonth() && A.getDate()===B.getDate();
+}
+function bizDiff(a,b){
+  if(!a||!b) return null;
+  const A=new Date(a), B=new Date(b);
+  let d=0, dir=A<=B?1:-1, cur=new Date(A);
+  cur.setHours(12,0,0,0); B.setHours(12,0,0,0);
+  while((dir>0&&cur<B)||(dir<0&&cur>B)){
+    cur.setDate(cur.getDate()+dir);
+    const w=cur.getDay(); if(w!==0&&w!==6) d+=dir;
+  }
+  return d;
+}
+function classify(r){
+  const du=bizDiff(r.data_envio,r.data_fatal); // DU >= 2 => dentro do prazo
+  const sla= du==null?'—': du>=2?'D-2':du===1?'D-1':du===0?'D0':`D+${Math.abs(du)}`;
+  const today=new Date(); today.setHours(12,0,0,0);
+  const df=r.data_fatal? new Date(r.data_fatal): null; if(df) df.setHours(12,0,0,0);
+  const delta=df? bizDiff(today,df): null;
+  const hoje= delta==null? '—' : (delta<0?'VENCIDO' : (delta===0?'HOJE' : (delta<=2?'A_VENCER':'OK')));
+  return {du,sla,hoje};
+}
+function pick(obj, keys){
+  for(const k of keys){
+    if(obj[k]!=null && obj[k]!=='') return obj[k];
+    const found = Object.keys(obj).find(x=>x.toLowerCase().includes(k.toLowerCase()));
+    if(found) return obj[found];
+  } return '';
+}
+
+/* Abas + lazy-load do BI */
+$$('.tab').forEach(b=> b.addEventListener('click',()=>{
+  $$('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  $$('.tabv').forEach(v=> v.style.display = (v.id===b.dataset.tab?'block':'none'));
+  if (b.dataset.tab==='bi'){ const f=$('#bi_iframe'); if(f && !f.src) f.src = POWERBI_URL; }
+}));
+
+/* Google Charts */
+google.charts.load('current', {'packages':['corechart']});
+google.charts.setOnLoadCallback(loadCSV);
+
+
+/* Carga via CSV */
+function parseCSV(text){
+  const rows = [];
+  let row = [], val = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i], n = text[i+1];
+    if (inQuotes){
+      if (c === '"' && n === '"'){ val += '"'; i++; continue; }
+      if (c === '"'){ inQuotes = false; continue; }
+      val += c; continue;
+    } else {
+      if (c === '"'){ inQuotes = true; continue; }
+      if (c === ','){ row.push(val); val = ''; continue; }
+      if (c === '
+'){ row.push(val); rows.push(row); row = []; val = ''; continue; }
+      if (c === ''){ continue; }
+      val += c;
+    }
+  }
+  if (val.length || row.length){ row.push(val); rows.push(row); }
+  return rows;
+}
+
+function loadCSV(){
+  fetch(CSV_URL, { cache:'no-store' })
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(text=>{
+      const arr = parseCSV(text);
+      if (!arr || arr.length===0) throw new Error('CSV vazio');
+      const cols = arr[0].map(h=> String(h||'').trim());
+      const dataRows = arr.slice(1).filter(r => r.some(x => (x||'').trim().length));
+      const rows = dataRows.map(r=>{
+        const o={};
+        cols.forEach((c,i)=> o[c] = r[i] ?? '');
+        return o;
+      });
+
+      S.rows = rows.map(r=>({
+        id:        pick(r,['id prazo','id']),
+        prazo:     pick(r,['Descrição do Prazo','prazo (descrição)','descrição do prazo','descricao do prazo','descricao','prazo']),
+        advogado:  pick(r,['executor do prazo','advogado','responsável','executor']),
+        cliente:   pick(r,['cliente']),
+        data_fatal:toDate(pick(r,['data fatal','prazo fatal','data do prazo','data limite'])),
+        data_envio:toDate(pick(r,['data envio','envio de minuta','data do envio','data de envio','envio'])),
+        status_prazo: pick(r,['status do prazo','status'])
+      })).map(r=>Object.assign(r, classify(r)))
+        .filter(r=> r.id || r.prazo || r.advogado || r.cliente);
+
+      S.filtered=[...S.rows];
+      hydrateFilters();
+      render();
+    })
+    .catch(err=>{
+      const e=$('#err'); if(e){ e.style.display='block'; e.textContent='Erro ao carregar CSV: '+err.message; }
+    });
+
+  // vinheta: remove após ~6s
+  setTimeout(()=>{ const ov=$('#intro_overlay'); if(ov) ov.style.display='none'; }, 6200);
+}
+/* Filtros */
+
+function hydrateFilters(){
+  const advs=[...new Set(S.rows.map(r=>r.advogado).filter(Boolean))].sort();
+  const clis=[...new Set(S.rows.map(r=>r.cliente ).filter(Boolean))].sort();
+  if($('#f_adv')) $('#f_adv').innerHTML = '<option value="">Advogado: Todos</option>'+advs.map(v=>`<option>${v}</option>`).join('');
+  if($('#f_cli')) $('#f_cli').innerHTML = '<option value="">Cliente: Todos</option>'+clis.map(v=>`<option>${v}</option>`).join('');
+  const prazos=[...new Set(S.rows.map(r=> String((r.prazo??'')).trim()).filter(Boolean))].sort((a,b)=> a.localeCompare(b,'pt-BR'));
+  if($('#f_tipo')) $('#f_tipo').innerHTML = '<option value="">Descrição do Prazo: Todos</option>'+prazos.map(v=>`<option>${v}</option>`).join('');
+}
+function applyFilters(){
+  F.q = ($('#q')?.value||'').toLowerCase();
+  F.adv=$('#f_adv')?.value||''; F.cli=$('#f_cli')?.value||''; F.hoje=$('#f_hoje')?.value||''; F.tipo=$('#f_tipo')?.value||'';
+  const vf=$('#f_de_from')?.value||''; const vt=$('#f_de_to')?.value||'';
+  F.de_from = vf? new Date(vf+'T12:00:00'):null; F.de_to = vt? new Date(vt+'T12:00:00'):null;
+}
+
+/* Render */
+function render(){
+  applyFilters();
+  S.filtered = S.rows.filter(r=>{
+    if(F.q   && !`${r.id} ${r.prazo} ${r.advogado} ${r.cliente}`.toLowerCase().includes(F.q)) return false;
+    if(F.adv && r.advogado!==F.adv) return false;
+    if(F.cli && r.cliente !==F.cli) return false;
+    if(F.hoje&& r.hoje    !==F.hoje) return false;
+    if(F.tipo&& (r.prazo||'')!==F.tipo) return false;
+    if(F.de_from && (!r.data_envio || r.data_envio < F.de_from)) return false;
+    if(F.de_to   && (!r.data_envio || r.data_envio > F.de_to))   return false;
+    return true;
+  });
+
+  /* SUBSTITUIR: ordenar por Data Fatal (asc) */
+  S.filtered.sort((a,b)=>{
+    const da = a.data_fatal ? a.data_fatal.getTime() : Infinity;
+    const db = b.data_fatal ? b.data_fatal.getTime() : Infinity;
+    return da - db;
+  });
+
+  const tb=$('#tb'); tb.innerHTML='';
+  S.filtered.forEach(r=>{
+    /* MELHORAR STATUS (exibição):
+       - OK => exibir como "A_VENCER" (verde)
+       - A_VENCER => "A_VENCER" (amarelo)
+       - VENCIDO => "FINALIZADO" (azul) + detalhe dentro/fora do prazo de envio */
+    let badgeClass='b-ok', hoje_label=r.hoje;
+    if(r.hoje==='OK'){ badgeClass='b-ok'; hoje_label='A_VENCER'; }
+    else if(r.hoje==='A_VENCER'){ badgeClass='b-warn'; hoje_label='A_VENCER'; }
+    else if(r.hoje==='HOJE'){ badgeClass='b-warn'; hoje_label='HOJE'; }
+    else if(r.hoje==='VENCIDO'){
+      badgeClass='b-blue';
+      hoje_label = r.du>=2 ? 'FINALIZADO (dentro do prazo de envio)' : 'FINALIZADO (fora do prazo de envio)';
+    }
+
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.id||''}</td><td>${r.prazo||''}</td><td>${r.advogado||''}</td><td>${r.cliente||''}</td>
+      <td>${r.data_fatal? r.data_fatal.toLocaleDateString('pt-BR'):''}</td>
+      <td>${r.data_envio? r.data_envio.toLocaleDateString('pt-BR'):''}</td>
+      <td><span class="badge ${badgeClass}" title="DU = dias úteis entre envio e prazo fatal. DU≥2 = dentro do prazo.">${r.sla}</span></td>
+      <td>${r.du??''}</td>
+      <td><span class="badge ${badgeClass}" title="Status do prazo em relação a hoje.">${hoje_label}</span></td>`;
+    tb.appendChild(tr);
+  });
+
+  const total  = S.filtered.length;
+  const dentro = S.filtered.filter(r=>r.du!=null && r.du>=2).length;
+  const fora   = S.filtered.filter(r=>r.du!=null && r.du<2).length;
+
+  $('#k_total').textContent   = total;
+  $('#k_ok').textContent      = dentro;
+  $('#k_late').textContent    = fora;
+  $('#k_pct_in').textContent  = total? Math.round(dentro*100/total)+'%' : '—';
+  $('#k_pct_out').textContent = total? Math.round(fora*100/total)+'%'   : '—';
+  $('#rows').textContent      = `${S.filtered.length} de ${S.rows.length} linhas`;
+
+  drawAdvChart();
+  drawTodayChart();
+  buildAgenda();
+}
+
+
+/* Finalizados: dentro vs fora do prazo */
+function drawFinalizadosChart(){
+  const host = document.getElementById('chart_finalizados');
+  if (!host || !window.google || !google.visualization) return;
+
+  const base = (S.filtered && S.filtered.length ? S.filtered : S.rows) || [];
+  let dentro = 0, fora = 0;
+  base.forEach(r=>{
+    if (r.du == null) return;
+    if (r.du >= 2) dentro += 1; else fora += 1;
+  });
+
+  const data = new google.visualization.DataTable();
+  data.addColumn('string','Categoria');
+  data.addColumn('number','Quantidade');
+  data.addRows([ ['Dentro do prazo', dentro], ['Fora do prazo', fora] ]);
+
+  const chart = new google.visualization.PieChart(host);
+  chart.draw(data, {
+    backgroundColor: 'transparent',
+    legend: { position:'right', textStyle:{color:'#9fb0bf'} },
+    pieHole: 0.45,
+    chartArea: { left: 20, top: 10, width: '85%', height: '85%' }
+  });
+}
+/* Gráfico por advogado: números + todos nomes */
+function drawAdvChart(){
+  if (!window.google || !google.visualization) return;
+  const el = document.getElementById('chart_adv'); if(!el) return;
+
+  const base = (S.filtered && S.filtered.length ? S.filtered : S.rows) || [];
+  const counts = {}; // { adv: {in: x, out: y} }
+
+  base.forEach(r=>{
+    const adv = (r.advogado && String(r.advogado).trim()) || '—';
+    if(!counts[adv]) counts[adv] = {in:0, out:0};
+    if (r.du == null) return;
+    if (r.du >= 2) counts[adv].in  += 1;
+    else           counts[adv].out += 1;
+  });
+
+  const entries = Object.entries(counts);
+  const rows = entries
+    .map(([k,v])=> [k, v.in, String(v.in), v.out, String(v.out), v.in+v.out])
+    .sort((a,b)=> b[5]-a[5])                 // ordena por total
+    .map(([k,vin,annIn,vout,annOut])=> [k, vin, annIn, vout, annOut]);
+
+  const data = new google.visualization.DataTable();
+  data.addColumn('string','Advogado');
+  data.addColumn('number','Dentro do prazo');
+  data.addColumn({type:'string', role:'annotation'});
+  data.addColumn('number','A vencer');
+  data.addColumn({type:'string', role:'annotation'});
+  data.addRows(rows);
+
+  const advCount = Math.max(entries.length, 1);
+  const maxLen = entries.reduce((m,[name]) => Math.max(m, (name||'').length), 1);
+  const leftPad = Math.min(320, 40 + maxLen * 7);
+  const height  = Math.max(360, advCount * 28 + 80);
+  el.style.height = height + 'px';
+
+  const chart = new google.visualization.BarChart(el);
+  chart.draw(data, {
+    backgroundColor: 'transparent',
+    isStacked: true,
+    legend: { position: 'top', textStyle:{color:'#9fb0bf'} },
+    chartArea: { left: leftPad, top: 30, width: '70%', height: height - 80 },
+    focusTarget: 'category',
+    bar: { groupWidth: '80%' },
+    hAxis: { textStyle:{color:'#9fb0bf'}, gridlines:{color:'#1b2a36'} },
+    vAxis: { textStyle:{color:'#9fb0bf'} },
+    colors: ['#1de9b6', '#ffd166'] // verde / amarelo
+  });
+}
+
+/* Feitos hoje (envios no dia) */
+function drawTodayChart(){
+  const host = document.getElementById('chart_today');
+  if (!host) return;
+
+  const base = (S.filtered && S.filtered.length ? S.filtered : S.rows) || [];
+  const today = new Date(); today.setHours(12,0,0,0);
+
+  const counts = {};
+  base.forEach(r=>{
+    if (sameDay(r.data_envio, today)){
+      const adv = (r.advogado && String(r.advogado).trim()) || '—';
+      counts[adv] = (counts[adv]||0) + 1;
+    }
+  });
+
+  const entries = Object.entries(counts).sort((a,b)=> b[1]-a[1]);
+  if (entries.length === 0){
+    host.innerHTML = '<div style="padding:12px;color:#94a7b6">Sem envios hoje.</div>';
+    return;
+  } else {
+    host.innerHTML = '';
+  }
+
+  const data = new google.visualization.DataTable();
+  data.addColumn('string', 'Advogado');
+  data.addColumn('number', 'Envios hoje');
+  data.addColumn({type:'string', role:'annotation'});
+  data.addRows(entries.map(([k,v])=>[k,v,String(v)]));
+
+  const height  = Math.max(320, entries.length * 28 + 60);
+  host.style.height = height + 'px';
+
+  const chart = new google.visualization.BarChart(host);
+  chart.draw(data, {
+    backgroundColor: 'transparent',
+    legend: { position: 'none' },
+    chartArea: { left: 120, top: 20, width: '70%', height: height - 60 },
+    focusTarget: 'category',
+    bar: { groupWidth: '80%' },
+    hAxis: { textStyle:{color:'#9fb0bf'}, gridlines:{color:'#1b2a36'} },
+    vAxis: { textStyle:{color:'#9fb0bf'} },
+    colors: ['#14c6b7']
+  });
+}
+
+/* Agenda (mês atual) */
+function buildAgenda(){
+  const host = $('#agenda'); if(!host) return;
+  const title = $('#agenda_month');
+
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  title.textContent = now.toLocaleString('pt-BR', { month:'long', year:'numeric' });
+
+  const counts = {};
+  S.rows.forEach(r=>{
+    if(!r.data_envio) return;
+    if(r.data_envio.getFullYear()===y && r.data_envio.getMonth()===m){
+      const d = r.data_envio.getDate();
+      counts[d] = (counts[d]||0)+1;
+    }
+  });
+
+  const first = new Date(y,m,1);
+  const startDay = (first.getDay()+6)%7; // segunda=0
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const totalCells = Math.ceil((startDay + daysInMonth)/7)*7;
+
+  host.innerHTML='';
+  for(let i=0;i<totalCells;i++){
+    const cell = document.createElement('div');
+    cell.className = 'agenda-day';
+    const dayNum = i - startDay + 1;
+    if(dayNum<=0 || dayNum>daysInMonth){
+      cell.classList.add('muted');
+      host.appendChild(cell);
+      continue;
+    }
+    const num = document.createElement('div');
+    num.className='dnum';
+    num.textContent = dayNum;
+    cell.appendChild(num);
+    if(counts[dayNum]){
+      const badge = document.createElement('span');
+      badge.className='count';
+      badge.textContent = counts[dayNum] + ' envio(s)';
+      cell.appendChild(badge);
+      cell.addEventListener('click', ()=>{
+        const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+        $('#f_de_from').value = iso;
+        $('#f_de_to').value   = iso;
+        // alterna para tab Tabela
+        $$('.tab').forEach(x=>x.classList.remove('active'));
+        $$('.tabv').forEach(v=> v.style.display='none');
+        document.querySelector('.tab[data-tab="tabela"]').classList.add('active');
+        $('#tabela').style.display='block';
+        render();
+      });
+    } else {
+      cell.classList.add('muted');
+    }
+    host.appendChild(cell);
+  }
+}
+
+/* Ações */
+document.addEventListener('click',e=>{
+  if(e.target?.id==='filtrar') render();
+  if(e.target?.id==='limpar'){
+    if($('#q')) $('#q').value='';
+    if($('#f_adv')) $('#f_adv').value='';
+    if($('#f_cli')) $('#f_cli').value='';
+    if($('#f_hoje')) $('#f_hoje').value='';
+    if($('#f_tipo')) $('#f_tipo').value='';
+    if($('#f_de_from')) $('#f_de_from').value='';
+    if($('#f_de_to')) $('#f_de_to').value='';
+    render();
+  }
+});
+</script>
+</body>
+</html>
